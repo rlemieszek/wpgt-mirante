@@ -1,0 +1,3 @@
+# optional: learned matching for `extend --learned` (ALIKED + LightGlue); runs on CUDA, Apple MPS or CPU
+torch
+lightglue @ git+https://github.com/cvg/LightGlue.git

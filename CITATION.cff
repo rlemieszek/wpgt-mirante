@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use WPGT Mirante, please cite it as below."
+title: "WPGT Mirante"
+abstract: >-
+  A WikiProject GeoTwin tool for 3D browsing of the Wikimedia Commons photos of a place. Photos are placed by
+  structure-from-motion (COLMAP), georeferenced against accurately positioned (RTK) survey photos or their own
+  geotags, and shown in a static web viewer that moves and cross-fades between neighbouring photos.
+type: software
+authors:
+  - given-names: Rafael
+    family-names: Lemieszek
+license: GPL-3.0-or-later
+repository-code: "https://github.com/rlemieszek/wpgt-mirante"
+version: 0.1.0
+keywords:
+  - Wikimedia Commons
+  - WikiProject GeoTwin
+  - structure-from-motion
+  - photogrammetry
+  - cultural heritage
+  - 3D viewer

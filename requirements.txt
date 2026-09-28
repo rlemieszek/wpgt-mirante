@@ -1,0 +1,5 @@
+pycolmap>=4.0
+numpy
+scipy
+pillow
+requests

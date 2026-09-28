@@ -1,0 +1,13 @@
+# data and generated sites (large; published separately, e.g. on Zenodo)
+work/
+site/
+*.log
+# environments and caches
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+# local tooling
+.claude/
+.netlify/

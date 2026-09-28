@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WPGT Mirante</title>
+<meta name="description" content="WPGT Mirante, a WikiProject GeoTwin tool: browse Wikimedia Commons photos of a place in 3D, positioned by structure-from-motion.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e1113'/%3E%3Cpath d='M16 25 6 9h20z' fill='none' stroke='%237cc4b8' stroke-width='2.4' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='25' r='2.6' fill='%237cc4b8'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="viewer.css">
+<!-- everything is served from this site: three.js and fonts are bundled under vendor/ (no third-party requests;
+     photos load from upload.wikimedia.org) -->
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/three.module.js",
+  "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+</head>
+<body>
+<!--VIEWER-BODY-->
+<div id="app">
+  <canvas id="c" aria-label="3D view of the photo collection"></canvas>
+  <header class="top">
+    <div class="brand">
+      <span class="mark">WPGT Mirante</span>
+      <h1 id="title">Loading scene…</h1>
+      <span id="stats"></span>
+    </div>
+    <div class="modes" role="group" aria-label="View">
+      <button id="mode-photo" aria-pressed="true">Photo</button>
+      <button id="mode-overview" aria-pressed="false">Overview</button>
+      <button id="toggle-points" aria-pressed="true">Points</button>
+      <button id="about-open" aria-haspopup="dialog" title="About WPGT Mirante">About</button>
+    </div>
+  </header>
+  <aside id="info" aria-live="polite" hidden>
+    <h2><a id="info-title" target="_blank" rel="noopener"></a></h2>
+    <div class="credit" id="info-credit"></div>
+    <button id="info-toggle" aria-expanded="true">Details</button>
+    <dl>
+      <dt>photo</dt><dd id="info-index"></dd>
+      <dt>SfM lat, lon</dt><dd id="info-latlon"></dd>
+      <dt>heading</dt><dd id="info-heading"></dd>
+      <dt>source</dt><dd id="info-role"></dd>
+      <dt id="info-resid-label">GPS residual</dt><dd id="info-resid"></dd>
+      <dt>3D points</dt><dd id="info-points"></dd>
+    </dl>
+  </aside>
+  <nav id="arrows" aria-label="Move to neighbouring photo">
+    <button id="nav-fwd" title="Closer (↑)" aria-label="Move closer">↑</button>
+    <button id="nav-left" title="Left (←)" aria-label="Move left">←</button>
+    <button id="nav-back" title="Back (↓)" aria-label="Move back">↓</button>
+    <button id="nav-right" title="Right (→)" aria-label="Move right">→</button>
+  </nav>
+  <div class="hint" id="hint">Click a spot to jump to the photo that shows it best · arrows move · O toggles overview · F frusta style</div>
+  <div id="strip" role="listbox" aria-label="Photos, ordered around the scene"></div>
+  <div id="toast" hidden></div>
+  <dialog id="about" aria-labelledby="about-title">
+    <h2 id="about-title">WPGT Mirante</h2>
+    <p class="sub">A <a href="https://commons.wikimedia.org/wiki/Commons:WikiProject_GeoTwin" target="_blank" rel="noopener">WikiProject GeoTwin</a> tool by Rafael Lemieszek</p>
+    <p>Browse the Wikimedia Commons photos of a place in 3D. Structure-from-motion recovers where each photo was
+      taken and which way it faced; moving between photos flies the camera along that path and cross-fades them over
+      the shared 3D points. <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> move, <kbd>O</kbd> opens the overview,
+      <kbd>F</kbd> changes how cameras are drawn there.</p>
+    <p id="about-scene"></p>
+    <p>Photos are loaded from Wikimedia Commons and stay under their authors' licences, shown with each photo.
+      The 3D points and camera positions are derived from them and are released under
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>;
+      <a href="credits.html" target="_blank" rel="noopener">full credits</a>.</p>
+    <form method="dialog"><button autofocus>Close</button></form>
+  </dialog>
+</div>
+<script type="module" src="viewer.js"></script>
+<!--/VIEWER-BODY-->
+</body>
+</html>
