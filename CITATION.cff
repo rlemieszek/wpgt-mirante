@@ -12,6 +12,7 @@ authors:
 license: GPL-3.0-or-later
 repository-code: "https://github.com/rlemieszek/wpgt-mirante"
 version: 0.1.0
+doi: 10.5281/zenodo.23016972
 keywords:
   - Wikimedia Commons
   - WikiProject GeoTwin

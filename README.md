@@ -1,5 +1,7 @@
 # WPGT Mirante
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23016972.svg)](https://doi.org/10.5281/zenodo.23016972)
+
 A [WikiProject GeoTwin](https://commons.wikimedia.org/wiki/Commons:WikiProject_GeoTwin) tool by Rafael Lemieszek: 3D browsing of the
 Wikimedia Commons photos of a place (*mirante* is Portuguese for a lookout). The photos are placed in 3D by
 structure-from-motion, georeferenced with their Commons geotags, and shown in a browser
@@ -199,5 +201,7 @@ as Toolforge requires.
   Mono fonts (SIL OFL 1.1), with their licence files.
 - Derived 3D data (points, camera positions): CC BY-SA 4.0, crediting every source photo (`credits.html`).
 - Photos: their own licences on Wikimedia Commons; the viewer shows author and licence with each photo.
-- Citing: see `CITATION.cff`. Releases are archived on Zenodo with a DOI.
+- Citing: see `CITATION.cff`. Releases are archived on Zenodo: cite all versions as
+  [10.5281/zenodo.23016972](https://doi.org/10.5281/zenodo.23016972) (0.1.0 is
+  [10.5281/zenodo.23016973](https://doi.org/10.5281/zenodo.23016973)).
 
