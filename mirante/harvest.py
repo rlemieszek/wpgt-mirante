@@ -182,9 +182,10 @@ def _safe_name(pageid: int, title: str, ext: str = ".jpg") -> str:
 
 # --------------------------------------------------------------------------- harvesting
 
-def list_files(c: Commons, category: str, depth: int = 0, exclude=()) -> list[dict]:
+def list_files(c: Commons, category: str, depth: int = 0, exclude=(), excluded_ids: set | None = None) -> list[dict]:
     """Files in a category and its subcategories down to `depth`; subcategories whose title matches one of
-    the `exclude` regexes are skipped (the top category never is)."""
+    the `exclude` regexes are skipped (the top category never is). If `excluded_ids` is given, the page ids of
+    the files directly in skipped subcategories are added to it (to keep them out of other sources too)."""
     if not category.startswith("Category:"):
         category = "Category:" + category
     rx = [re.compile(p, re.I) for p in exclude]
@@ -192,7 +193,13 @@ def list_files(c: Commons, category: str, depth: int = 0, exclude=()) -> list[di
     frontier = [(category, 0)]
     while frontier:
         cat, d = frontier.pop()
-        if cat in seen_cats or (d > 0 and any(r.search(cat) for r in rx)):
+        if cat in seen_cats:
+            continue
+        if d > 0 and any(r.search(cat) for r in rx):
+            seen_cats.add(cat)
+            if excluded_ids is not None:
+                for data in c.query_all(list="categorymembers", cmtitle=cat, cmtype="file", cmlimit="500"):
+                    excluded_ids.update(m["pageid"] for m in data["query"]["categorymembers"])
             continue
         seen_cats.add(cat)
         for data in c.query_all(list="categorymembers", cmtitle=cat, cmtype="file|subcat", cmlimit="500"):
@@ -203,6 +210,52 @@ def list_files(c: Commons, category: str, depth: int = 0, exclude=()) -> list[di
                     frontier.append((m["title"], d + 1))
     print(f"{len(files)} files in {len(seen_cats)} categor{'y' if len(seen_cats) == 1 else 'ies'}", file=sys.stderr)
     return [{"pageid": k, "title": v} for k, v in files.items()]
+
+
+def geosearch_grid(c: Commons, lat_min, lat_max, lon_min, lon_max, step_m=100.0) -> dict[int, tuple]:
+    """GeoData search on a grid of circles (the API returns at most 500 hits per query, no continuation).
+    -> {pageid: (title, lat, lon)} for files whose camera or object coordinates fall in the box."""
+    import math
+    files = {}
+    dlat = step_m / 111_320.0
+    dlon = step_m / (111_320.0 * math.cos(math.radians((lat_min + lat_max) / 2)))
+    radius = step_m * 0.75  # > step/sqrt(2): circles overlap and cover the grid cells
+    capped = 0
+    lat = lat_min
+    while lat <= lat_max + dlat:
+        lon = lon_min
+        while lon <= lon_max + dlon:
+            for attempt in range(4):
+                data = c.get(action="query", list="geosearch", gscoord=f"{lat:.6f}|{lon:.6f}",
+                             gsradius=str(int(radius)), gsnamespace="6", gslimit="500", gsprimary="all")
+                if "query" in data:
+                    break
+                print(f"  geosearch error at {lat:.6f},{lon:.6f}: {data.get('error', data)}", file=sys.stderr)
+                time.sleep(2 ** attempt)
+            else:
+                lon += dlon
+                continue
+            hits = data["query"]["geosearch"]
+            capped += len(hits) >= 500
+            for h in hits:
+                files[h["pageid"]] = (h["title"], h["lat"], h["lon"])
+            lon += dlon
+        lat += dlat
+    print(f"geosearch: {len(files)} files" + (f" ({capped} cells hit the 500 cap; use a smaller step)" if capped else ""),
+          file=sys.stderr)
+    return files
+
+
+def near_files(c: Commons, lat0: float, lon0: float, radius_m: float) -> list[dict]:
+    """Files geotagged (camera or object location) within radius_m of lat0, lon0."""
+    mlat = radius_m / 111_320.0
+    mlon = radius_m / (111_320.0 * __import__("math").cos(__import__("math").radians(lat0)))
+    step = min(100.0, max(30.0, radius_m / 3))
+    hits = geosearch_grid(c, lat0 - mlat, lat0 + mlat, lon0 - mlon, lon0 + mlon, step)
+    out = [{"pageid": k, "title": t} for k, (t, la, lo) in hits.items()
+           if _ground_distance_m({"lat": la, "lon": lo}, lat0, lon0) <= radius_m]
+    print(f"{len(out)} files geotagged within {radius_m:g} m", file=sys.stderr)
+    return out
 
 
 def fetch_details(c: Commons, files: list[dict], width: int) -> list[dict]:
@@ -301,6 +354,8 @@ def main(argv=None):
                     help="keep only files whose camera position is within METRES of LAT, LON")
     ap.add_argument("--exclude", action="append", default=[], metavar="REGEX",
                     help="skip subcategories whose title matches (repeatable), e.g. Interior")
+    ap.add_argument("--near", nargs=3, type=float, metavar=("LAT", "LON", "METRES"),
+                    help="also include files geotagged within METRES of LAT, LON (camera or object location)")
     ap.add_argument("--anchor-category", action="append", default=[], metavar="CAT",
                     help="also harvest this category and flag its files as anchors: accurately positioned photos "
                          "(e.g. a WPGT set) that alone get position priors and drive the georeferencing")
@@ -315,7 +370,15 @@ def main(argv=None):
     wd = Path(a.workdir)
     wd.mkdir(parents=True, exist_ok=True)
     anchor_files = {f["pageid"]: f for cat in a.anchor_category for f in list_files(c, cat, 0)}
-    files = [f for f in list_files(c, a.category, a.depth, a.exclude) if f["pageid"] not in anchor_files]
+    excluded_ids: set = set()
+    files = {f["pageid"]: f for f in list_files(c, a.category, a.depth, a.exclude, excluded_ids)}
+    if a.near:
+        extra = [f for f in near_files(c, *a.near) if f["pageid"] not in files]
+        files.update({f["pageid"]: f for f in extra})
+        print(f"  {len(extra)} of them not already in the category", file=sys.stderr)
+    files = [f for k, f in files.items() if k not in anchor_files and k not in excluded_ids]
+    if excluded_ids:
+        print(f"  {len(excluded_ids)} files from excluded subcategories left out", file=sys.stderr)
     items = fetch_details(c, files + list(anchor_files.values()), a.width)
     for it in items:
         if it["pageid"] in anchor_files:
@@ -328,7 +391,7 @@ def main(argv=None):
         lat0, lon0, r = a.within
         items = [it for it in items if _ground_distance_m(it["camera_location"], lat0, lon0) <= r]
         print(f"{len(items)} images with a camera position within {r:g} m", file=sys.stderr)
-    manifest = {"category": a.category, "within": a.within, "anchor_categories": a.anchor_category, "harvested": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    manifest = {"category": a.category, "within": a.within, "near": a.near, "anchor_categories": a.anchor_category, "harvested": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "thumb_width": a.width, "items": items}
     (wd / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1))
     if not a.no_download:
