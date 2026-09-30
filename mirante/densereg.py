@@ -102,7 +102,7 @@ def prepare(workdir: Path, n_targets=8, n_blind=10, fov_deg=70.0, max_depth=120.
     pairs, used, how = [], set(), {"merged pose": 0, "geotag": 0, "no location": 0}
     for it in items:
         n = it["file"]
-        if n in in_main or it.get("anchor") or not (workdir / "images" / n).exists():
+        if n in in_main or it.get("anchor") or not it.get("thumb_url"):  # photos need not be on disk: the worker downloads
             continue
         if n in merged_pose:
             C, fwd = merged_pose[n]

@@ -11,6 +11,7 @@ Object location ({{Object location}} / P625) is recorded separately and never us
 Usage:
   python -m mirante.harvest "Category:WPGT - ..." work/rui-barbosa [--depth 0] [--width 1920]
   python -m mirante.harvest --search "WPGT Rui Barbosa"   # find category names
+  python -m mirante.harvest --download work/rui-barbosa    # re-fetch a work folder's photos
 """
 from __future__ import annotations
 
@@ -361,10 +362,23 @@ def main(argv=None):
                          "(e.g. a WPGT set) that alone get position priors and drive the georeferencing")
     ap.add_argument("--no-download", action="store_true")
     ap.add_argument("--search", metavar="TEXT", help="list categories whose title matches TEXT and exit")
+    ap.add_argument("--download", metavar="WORKDIR",
+                    help="(re)download the photos of an existing work folder (manifest.json and extra/manifest.json) "
+                         "and exit; files already present are skipped")
     a = ap.parse_args(argv)
     c = Commons()
     if a.search:
         return search_categories(c, a.search)
+    if a.download:
+        wd = Path(a.download)
+        items = []
+        for m in (wd / "manifest.json", wd / "extra" / "manifest.json"):
+            if m.exists():
+                items += json.loads(m.read_text())["items"]
+        todo = [it for it in {it["file"]: it for it in items}.values()
+                if not ((wd / "images" / it["file"]).exists() and (wd / "images" / it["file"]).stat().st_size > 0)]
+        print(f"{len(todo)} of {len(items)} photos to download into {wd / 'images'}", file=sys.stderr)
+        return download(c, todo, wd / "images")
     if not (a.category and a.workdir):
         ap.error("category and workdir are required")
     wd = Path(a.workdir)

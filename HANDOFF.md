@@ -22,6 +22,13 @@ folder**: code, `.git`, `work/` and `site/` are all there. Three rules:
    not survive concurrent writes from both sides. Push to GitHub (branch `roma-dense-registration`) as the
    source of truth for code.
 
+To keep the synced folder small (it was ~41,000 files), the Mac's `.venv/`, all downloaded photos
+(`work/*/images/`) and the LightGlue feature caches (`work/*/colmap/extended/learned/`) were deleted on
+2026-09-30; everything else (databases, models, georef/manifests, the RoMa job, Commons edit plans, sites) is
+kept. Photos come back with `python -m mirante.harvest --download work/<set>` (skips files already present);
+the RoMa worker downloads the ones it needs by itself; `export`, `locations`, `merge`, `densereg` and
+`commons_edit` don't need them. Re-running mapping or feature extraction does.
+
 `torch` and `pycolmap` each bundle an OpenMP runtime and **cannot be imported in the same process**. That is
 why `mirante.learned` and `mirante.dense` are separate worker processes that hide `pycolmap`; keep it that way.
 
@@ -55,8 +62,8 @@ Work folder `work/boa-viagem`, site `site/boa-viagem`.
 
 ### Next steps
 
-1. Run RoMa (CUDA). `jobs.json` points at the synced photos (`"images": "../images"`); any missing one is
-   downloaded from Commons:
+1. Run RoMa (CUDA). `jobs.json` points at `work/boa-viagem/images` (`"images": "../images"`, now empty); missing
+   photos are downloaded from Commons into `dense_job/out/images/`:
    ```bash
    python -m mirante.dense work/boa-viagem/dense_job/jobs.json work/boa-viagem/dense_job/out
    ```
