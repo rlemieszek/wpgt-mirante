@@ -126,18 +126,21 @@ def fix_roll_if_collinear(centers_enu, ups_enu):
     return _rot_about(axis, angs[int(np.argmax(scores))])
 
 
-def level_from_camera_axes(rights, trim=0.2):
+def level_from_camera_axes(rights, trim=0.2, ups=None):
     """Handheld photos are mostly taken upright, so their x axes (right) are near horizontal; the vertical is
     the direction most orthogonal to all of them (trimmed to ignore tilted shots). Returns the rotation taking
     that direction to +z and its angle in degrees, or None when the x axes are nearly parallel (e.g. a
-    drone grid flown at one heading): then they only constrain the vertical to a plane."""
+    drone grid flown at one heading): then they only constrain the vertical to a plane. The x axes fix the
+    vertical line but not its sign; `ups` (the cameras' image-up vectors, -y) resolve it, so a model that the
+    geotag fit left upside down is flipped back."""
     w = np.linalg.eigvalsh(rights.T @ rights)
     if w[1] < 0.1 * w[2]:
         return None
     keep = np.ones(len(rights), bool)
     for _ in range(3):
         v = np.linalg.eigh(rights[keep].T @ rights[keep])[1][:, 0]
-        up = v * np.sign(v[2])
+        sign = np.sign(np.mean(ups @ v)) if ups is not None and abs(np.mean(ups @ v)) > 1e-6 else np.sign(v[2])
+        up = v * (sign or 1.0)
         dev = np.abs(rights @ up)
         keep = dev <= np.quantile(dev, 1 - trim)
     axis = np.cross(up, [0.0, 0.0, 1.0])
@@ -269,7 +272,8 @@ def run(workdir: Path, matcher="auto", use_priors=False, inlier_m=None, max_imag
                         {"horizontal": prior_sigma_m, "vertical": prior_sigma_z_m} if use_priors and pos else None)
 
 
-def georeference(workdir, rec, model_dir, items, pos, origin, used_priors, inlier_m, prior_sigma):
+def georeference(workdir, rec, model_dir, items, pos, origin, used_priors, inlier_m, prior_sigma, write=True,
+                 force_horizontal=False):
     """Similarity model -> ENU from the geotags (RANSAC), plus gravity fixes; writes georef.json."""
     use_priors = used_priors
     georef = {"origin": origin, "model_dir": model_dir, "frame": "ENU metres (x=east, y=north, z=up)",
@@ -293,8 +297,8 @@ def georeference(workdir, rec, model_dir, items, pos, origin, used_priors, inlie
         fit = np.array([not anchors or n in anchors for n in names])
         if fit.sum() < 3:
             raise SystemExit("fewer than 3 registered anchors: cannot georeference")
-        horizontal = sum(1 for n, f in zip(names, fit) if f and pos[n][1]) < 0.5 * fit.sum()
-        lvl = level_from_camera_axes(rights[fit]) if horizontal else None
+        horizontal = force_horizontal or sum(1 for n, f in zip(names, fit) if f and pos[n][1]) < 0.5 * fit.sum()
+        lvl = level_from_camera_axes(rights[fit], ups=ups[fit]) if horizontal else None
         if horizontal and lvl is None:
             horizontal = False
             log("  anchors without altitude and camera x axes nearly parallel: 3D fit assuming one flight height")
@@ -326,7 +330,8 @@ def georeference(workdir, rec, model_dir, items, pos, origin, used_priors, inlie
         # Ordinary geotags (no --use-priors) barely constrain tilt: altitudes are missing or phone-GPS noisy
         # (metres to tens of metres) over camera spreads of tens of metres. Level the frame from the cameras'
         # x axes instead, which are near horizontal for upright handheld shots and gimbal-stabilised drones.
-        lvl = level_from_camera_axes(rights @ R.T) if not use_priors and not horizontal and len(names) >= 10 else None
+        lvl = (level_from_camera_axes(rights @ R.T, ups=ups @ R.T)
+               if not use_priors and not horizontal and len(names) >= 10 else None)
         if lvl is not None:
             R_lvl, ang = lvl
             mu = centers[inl].mean(0)
@@ -357,7 +362,8 @@ def georeference(workdir, rec, model_dir, items, pos, origin, used_priors, inlie
     else:
         georef.update({"aligned": False, "sim3": {"scale": 1.0, "R": np.eye(3).tolist(), "t": [0, 0, 0]}})
         log("  fewer than 3 located images registered: exporting in arbitrary model frame")
-    (workdir / "georef.json").write_text(json.dumps(georef, indent=1))
+    if write:
+        (workdir / "georef.json").write_text(json.dumps(georef, indent=1))
     return georef
 
 

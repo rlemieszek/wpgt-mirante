@@ -50,3 +50,15 @@ def enu_to_geodetic(e, n, u, lat0, lon0, alt0):
     n = _A / np.sqrt(1 - _E2 * np.sin(lat) ** 2)
     alt = p / np.cos(lat) - n
     return np.degrees(lat), np.degrees(lon), alt
+
+
+def geoid_undulation(lat, lon, model="EGM2008"):
+    """Geoid height N (m) above the WGS84 ellipsoid, so that sea-level height H = h - N. Uses PROJ's geoid grids
+    (pyproj, fetched from the PROJ CDN on first use)."""
+    import pyproj
+    pyproj.network.set_network_enabled(True)
+    dst = {"EGM2008": "EPSG:4326+3855", "EGM96": "EPSG:4326+5773"}[model]
+    _, _, H = pyproj.Transformer.from_crs("EPSG:4979", dst, always_xy=True).transform(lon, lat, 0.0)
+    if H == float("inf"):
+        raise RuntimeError("geoid grid unavailable (no network?)")
+    return -float(H)

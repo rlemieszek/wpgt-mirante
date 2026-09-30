@@ -87,7 +87,11 @@ const cams = S.images.map((im, i) => {
   return { i, im, C, q, fwd, vis, visSet: null, depth, view, vfov, hfov, src,
     intr: new THREE.Vector4(im.f / im.width, im.f / im.height, im.cx / im.width, im.cy / im.height) };
 });
-const sceneRadius = Math.max(10, ...cams.map((c) => c.C.length()));
+// robust: one badly placed camera must not push the overview out to infinity
+const sceneRadius = (() => {
+  const d = cams.map((c) => c.C.length()).filter(Number.isFinite).sort((a, b) => a - b);
+  return Math.max(10, d.length ? d[Math.min(d.length - 1, Math.floor(0.95 * d.length))] : 10);
+})();
 
 // ------------------------------------------------------------------ textures
 // Full-resolution photos cost ~15 MB of GPU memory each (1920 px + mipmaps), so only the most recently used
@@ -575,6 +579,7 @@ function updateUI() {
   const extra = im.role === 'extra';
   const anchorsExist = cams.some((c) => c.im.role === 'anchor');
   $('info-role').textContent = extra ? 'matched to anchors' : im.role === 'anchor' ? 'anchor (geotag in BA)'
+    : im.role === 'grouped' ? 'separate ground model, placed by geotags'
     : anchorsExist ? 'SfM with the anchors (geotag not used)' : 'SfM, georeferenced by geotags';
   $('info-resid-label').textContent = extra || (im.role === 'photo' && anchorsExist) ? 'geotag offset' : 'GPS residual';
   const r = im.gps_residual_m;
