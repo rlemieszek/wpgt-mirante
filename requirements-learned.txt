@@ -1,3 +1,5 @@
 # optional: learned matching for `extend --learned` (ALIKED + LightGlue); runs on CUDA, Apple MPS or CPU
 torch
 lightglue @ git+https://github.com/cvg/LightGlue.git
+# optional: dense matching for mirante.densereg / mirante.dense (RoMa, MIT; DINOv2 weights Apache-2.0)
+romatch @ git+https://github.com/Parskatt/RoMa.git

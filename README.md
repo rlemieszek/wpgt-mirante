@@ -113,6 +113,31 @@ existing extension) gives the photos SIFT could not register a second chance wit
 cannot match). The worker (`mirante.learned`) runs in its own process because torch and pycolmap each
 bundle an OpenMP runtime and cannot share one.
 
+## Photos that form separate models (`merge`, `densereg`)
+
+When some photos share no features with the anchors (e.g. ground photos under trees, drone survey 70–125 m up),
+mapping leaves them in separate models under `colmap/sparse/`.
+
+- `python -m mirante.merge WORKDIR [--icp] [--min-images 10]` georeferences each separate model horizontally from
+  its own geotags (phone altitudes are ignored), puts its ground level on the main model's, optionally refines it
+  with a bounded similarity ICP against the main point cloud (kept only if it clearly helps: scale within 0.8–1.25,
+  rotation < 20°, median distance down ≥ 30 %), drops degenerate far-away cameras, and adds it to the site. The
+  viewer labels these photos "separate ground model, placed by geotags". Accuracy: a few metres.
+- `python -m mirante.densereg prepare WORKDIR` builds a RoMa job: for every photo outside the main model, the drone
+  views most likely to see the same thing, and those views' keypoints that have 3D points. `mirante.dense` (a
+  standalone worker, also copied into the job as `run_dense.py`; best on a CUDA GPU, ~1 s/pair) samples RoMa's
+  dense warp exactly at those keypoints, with a forward-backward consistency check. `python -m mirante.densereg
+  register WORKDIR` turns confident samples into 2D-3D matches, solves each photo with PnP under strict checks,
+  adds accepted photos to the main model sharing its 3D points (so the viewer can fly between ground and drone
+  photos), and re-anchors a separate group on its registered members. Needs
+  `pip install git+https://github.com/Parskatt/RoMa.git` and torch.
+
+## Heights
+
+Heights follow the anchors. If the anchors' heights are ellipsoidal (RTK), set `"reference": {"vertical_datum":
+"WGS84 ellipsoid"}` in the manifest: `locations` then writes `alt_msl_m` (EGM2008 geoid via pyproj) next to
+`alt_ellipsoidal_m`, and `commons_edit` uses the sea-level value for `alt:` and P2044.
+
 ## Recovered camera locations
 
 ```bash

@@ -83,8 +83,17 @@ def norm(name):
     return (name[:1].lower() + name[1:]).lower() if name else name
 
 
+def alt_msl(row, ground_asl):
+    """Sea-level altitude: from the CSV when the model's heights are absolute, else ground level + height."""
+    if row.get("alt_msl_m"):
+        return round(float(row["alt_msl_m"]))
+    if ground_asl is None:
+        raise SystemExit("heights are relative to local ground: pass --ground-asl")
+    return round(ground_asl + float(row["height_above_ground_m"]))
+
+
 def location_template(row, ground_asl):
-    alt = round(ground_asl + float(row["height_above_ground_m"]))
+    alt = alt_msl(row, ground_asl)
     return f"{{{{Location|{float(row['sfm_lat']):.6f}|{float(row['sfm_lon']):.6f}|alt:{alt}_heading:{int(row['heading_deg'])}_source:WPGT}}}}"
 
 
@@ -126,7 +135,7 @@ def plan_sdc(entity, row, ground_asl):
                          "datavalue": {"type": "globecoordinate", "value": {
                              "latitude": round(float(row["sfm_lat"]), 6), "longitude": round(float(row["sfm_lon"]), 6),
                              "altitude": None, "precision": 1e-6, "globe": Q_EARTH}}}
-    alt = round(ground_asl + float(row["height_above_ground_m"]))
+    alt = alt_msl(row, ground_asl)
     quals = {k: v for k, v in (old.get("qualifiers") or {}).items() if k not in ("P7787", "P2044")}
     quals["P7787"] = [{"snaktype": "value", "property": "P7787", "datatype": "quantity",
                        "datavalue": {"type": "quantity", "value": _quantity(int(row["heading_deg"]), Q_DEGREE)}}]
@@ -206,8 +215,7 @@ td,th{{border-bottom:1px solid #ddd;padding:4px 6px;text-align:left;vertical-ali
 tr.manual td{{background:#fff3cd}} tr.insert td:nth-child(2){{color:#0a7}} tr.update td:nth-child(2){{color:#06c}}
 @media (prefers-color-scheme: dark){{body{{background:#111;color:#eee}} td,th{{border-color:#333}} tr.manual td{{background:#3a3212}}}}</style>
 </head><body><h1>Location edits preview</h1>
-<p>{counts} wikitext edits; {n_sdc} structured-data (P1259) corrections. Altitude = {ground_asl:.1f} m (local ground,
-from the placed photos' elevations) + SfM height above ground. Summaries: <i>{html.escape(SUMMARY["insert"])}</i> /
+<p>{counts} wikitext edits; {n_sdc} structured-data (P1259) corrections. Altitude: {"sea-level height from the model (anchors' ellipsoidal heights corrected with EGM2008)" if ground_asl is None else f"{ground_asl:.1f} m (local ground, from the placed photos' elevations) + SfM height above ground"}. Summaries: <i>{html.escape(SUMMARY["insert"])}</i> /
 <i>{html.escape(SUMMARY["update"])}</i>.</p>
 <p>Excluded for low confidence (fewer than 50 supporting 3D points): <ul>{skipped or "<li>none</li>"}</ul></p>
 <table><thead><tr><th>File</th><th>Action</th><th>Current template</th><th>New template</th><th>SDC P1259</th>
@@ -291,8 +299,9 @@ def apply(out: Path, limit=None, delay=10.0):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("workdir", type=Path)
-    ap.add_argument("--ground-asl", type=float, required=True,
-                    help="elevation of the local ground above sea level (m); alt = this + SfM height above ground")
+    ap.add_argument("--ground-asl", type=float,
+                    help="elevation of the local ground above sea level (m), for models whose heights are relative "
+                         "to local ground (anchors without altitude); alt = this + SfM height above ground")
     ap.add_argument("--min-confidence", default="medium", choices=list(CONFIDENCE))
     ap.add_argument("--apply", action="store_true", help="make the edits (default: plan + preview only)")
     ap.add_argument("--limit", type=int, help="with --apply: only the next N pages (for a trial run)")

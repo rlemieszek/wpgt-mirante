@@ -48,6 +48,7 @@ def export(workdir: Path, site: Path, local_images=False, title=None, max_reproj
         by_file.update({it["file"]: it for it in json.loads(extra_man.read_text())["items"]})
     extra_offsets = (geo.get("extra") or {}).get("geotag_offset_m", {})
     extra_files = set(by_file) - set(it["file"] for it in man["items"])
+    grouped = {n for m in geo.get("merged_models") or [] for n in m.get("names", [])}  # from mirante.merge
     rec = pycolmap.Reconstruction(str(workdir / geo["model_dir"]))
     s = geo["sim3"]["scale"]
     R = np.array(geo["sim3"]["R"])
@@ -110,7 +111,7 @@ def export(workdir: Path, site: Path, local_images=False, title=None, max_reproj
             "commons_heading_deg": loc.get("heading"),
             # anchor: geotag was a bundle-adjustment prior; photo: geotag only used for the georeferencing fit
             "role": ("anchor" if geo.get("used_priors_in_ba") and im.name in anchors else
-                     "extra" if im.name in extra_files else "photo"),
+                     "extra" if im.name in extra_files else "grouped" if im.name in grouped else "photo"),
             # anchors: residual of the georeferencing fit; extras: offset of their Commons geotag from SfM
             "gps_residual_m": (extra_offsets if im.name in extra_files else geo.get("per_image_residual_m", {})).get(im.name),
             "author": it.get("author"), "license": it.get("license"), "license_url": it.get("license_url"),
@@ -200,7 +201,8 @@ def refresh_viewer(site: Path):
 def write_credits(site: Path, scene: dict):
     """credits.html: every photo the reconstruction is derived from, with author and licence (CC BY-SA credit)."""
     from html import escape
-    roles = {"anchor": "survey anchor (RTK)", "extra": "matched to anchors", "photo": "placed by SfM"}
+    roles = {"anchor": "survey anchor (RTK)", "extra": "matched to anchors", "photo": "placed by SfM",
+             "grouped": "separate SfM group, placed by geotags"}
     rows = []
     for k, im in enumerate(sorted(scene["images"], key=lambda im: im["title"]), 1):
         title = escape(im["title"].removeprefix("File:"))
