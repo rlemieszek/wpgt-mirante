@@ -67,29 +67,8 @@ def category_files(c: harvest.Commons, categories, depth, exclude) -> dict[int, 
 
 
 def geo_files(c: harvest.Commons, lat_min, lat_max, lon_min, lon_max, step_m=100.0) -> dict[int, str]:
-    """GeoData search on a grid of circles (the API returns at most 500 hits per query, no continuation)."""
-    files = {}
-    dlat = step_m / 111_320.0
-    dlon = step_m / (111_320.0 * np.cos(np.radians((lat_min + lat_max) / 2)))
-    radius = step_m * 0.75  # > step/sqrt(2): circles overlap and cover the grid cells
-    capped = 0
-    for lat in np.arange(lat_min, lat_max + dlat, dlat):
-        for lon in np.arange(lon_min, lon_max + dlon, dlon):
-            for attempt in range(4):
-                data = c.get(action="query", list="geosearch", gscoord=f"{lat:.6f}|{lon:.6f}",
-                             gsradius=str(int(radius)), gsnamespace="6", gslimit="500", gsprimary="all")
-                if "query" in data:
-                    break
-                log(f"  geosearch error at {lat:.6f},{lon:.6f}: {data.get('error', data)}")
-                time.sleep(2 ** attempt)
-            else:
-                continue
-            hits = data["query"]["geosearch"]
-            capped += len(hits) >= 500
-            for h in hits:
-                files[h["pageid"]] = h["title"]
-    log(f"geosearch: {len(files)} files" + (f" ({capped} cells hit the 500 cap; use a smaller step)" if capped else ""))
-    return files
+    hits = harvest.geosearch_grid(c, lat_min, lat_max, lon_min, lon_max, step_m)
+    return {k: v[0] for k, v in hits.items()}
 
 
 # --------------------------------------------------------------------------- pairing

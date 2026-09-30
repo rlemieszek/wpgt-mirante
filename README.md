@@ -33,7 +33,7 @@ Each step can also run on its own:
 
 | step | command | notes |
 |---|---|---|
-| harvest | `python -m mirante.harvest CATEGORY WORKDIR [--depth N] [--width 1920] [--require-location] [--within LAT LON METRES] [--exclude REGEX] [--anchor-category CAT]` | Camera position taken from SDC P1259, then EXIF GPS, then `{{Location}}`. `{{Object location}}` / P625 is kept apart and never used as a camera position. Focal-length prior from EXIF (35 mm equivalent, sensor table, or focal-plane resolution). |
+| harvest | `python -m mirante.harvest CATEGORY WORKDIR [--depth N] [--width 1920] [--require-location] [--within LAT LON METRES] [--near LAT LON METRES] [--exclude REGEX] [--anchor-category CAT]` | Camera position taken from SDC P1259, then EXIF GPS, then `{{Location}}`. `{{Object location}}` / P625 is kept apart and never used as a camera position. Focal-length prior from EXIF (35 mm equivalent, sensor table, or focal-plane resolution). |
 | reconstruct | `python -m mirante.reconstruct WORKDIR [--use-priors] [--inlier-m 5] [--matcher auto\|exhaustive\|spatial]` | COLMAP incremental SfM via pycolmap. Exhaustive matching up to 150 images, then GPS-neighbour (spatial) matching. Georeferencing is a RANSAC similarity fit from SfM camera centres to geotags; outlier geotags are listed in `georef.json`. |
 | extend | `python -m mirante.extend WORKDIR [--category CAT ...] [--depth 1] [--no-geo] [--geo-margin 50]` | Registers other Commons photos of the area into the reconstruction with the anchor poses held fixed (see below). |
 | export | `python -m mirante.export WORKDIR SITE [--local-images] [--title ...]` | Without `--local-images` the viewer hotlinks the Commons thumbnails (smaller site, attribution stays with Commons). |
@@ -59,6 +59,9 @@ python -m mirante.harvest "Category:Igreja de São Francisco de Assis (Belo Hori
 python -m mirante.reconstruct work/sao-francisco --use-priors --matcher exhaustive
 python -m mirante.export work/sao-francisco site/sao-francisco
 ```
+
+`--near LAT LON METRES` adds files geotagged within that radius (camera or object location) that are not in
+the category; files of `--exclude`d subcategories stay out even when geotagged there.
 
 Files from `--anchor-category` are flagged `"anchor": true`: only they get position priors and drive the
 georeferencing; every other photo is placed by SfM alone and its geotag offset is reported.
